@@ -1,1 +1,3 @@
-
+<resources>
+    <string name="desc">تنفيذ النقرات تلقائياً عند اكتشاف تغيير في منطقة المراقبة</string>
+</resources>
