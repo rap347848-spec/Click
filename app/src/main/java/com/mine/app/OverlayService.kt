@@ -47,6 +47,7 @@ class OverlayService : Service() {
     @Volatile private var ref: IntArray? = null
     private var refW = 0
     private var clicks = 1
+    @Volatile private var remaining = 1
     private var vertical = false
 
     override fun onBind(i: Intent?): IBinder? = null
@@ -123,26 +124,21 @@ class OverlayService : Service() {
         }
     }
 
+    // كل اكتشاف = نقرة واحدة؛ العدد = كم مرة تتكرر الدورة (اكتشاف ثم نقرة)، وبعد انتهائه يتوقف حتى تشغّله
     private fun doClicks() {
         val c = clk ?: return
-        val cx = (c.x + c.w / 2).toFloat(); val cy = (c.y + c.h / 2).toFloat()
-        val total = clicks; var done = 0
-        val r = object : Runnable {
-            override fun run() {
-                if (done < total && active) {
-                    val s = ClickService.inst
-                    if (s == null) Toast.makeText(this@OverlayService, "فعّل خدمة النقر من الإعدادات", Toast.LENGTH_SHORT).show()
-                    else s.tap(cx, cy)
-                    done++; ui.postDelayed(this, 120)
-                } else ui.postDelayed({ ref = null; triggering = false }, 700)
-            }
-        }
-        ui.post(r)
+        val s = ClickService.inst
+        if (s == null) Toast.makeText(this, "فعّل خدمة النقر من الإعدادات", Toast.LENGTH_SHORT).show()
+        else s.tap((c.x + c.w / 2).toFloat(), (c.y + c.h / 2).toFloat())
+        remaining--
+        if (remaining <= 0) setActive(false)
+        else { countTv.text = "$remaining"; ui.postDelayed({ ref = null; triggering = false }, 700) }
     }
 
     // ---------- الواجهة ----------
     private fun setActive(a: Boolean) {
         active = a; ref = null; triggering = false
+        remaining = clicks; countTv.text = "$clicks"
         toggleBtn.text = if (a) "⏸" else "▶"
         fab.text = if (a) "⏸" else "▶"
         (fab.background as GradientDrawable).setColor(if (a) Color.rgb(200, 40, 40) else Color.rgb(30, 150, 60))
@@ -161,8 +157,8 @@ class OverlayService : Service() {
         val grip = tv("☰")
         toggleBtn = tv("▶").also { it.setOnClickListener { setActive(!active) } }
         countTv = tv("1")
-        val minus = tv("−").also { it.setOnClickListener { clicks = (clicks - 1).coerceAtLeast(1); countTv.text = "$clicks" } }
-        val plus = tv("+").also { it.setOnClickListener { clicks = (clicks + 1).coerceAtMost(10); countTv.text = "$clicks" } }
+        val minus = tv("−").also { it.setOnClickListener { clicks = (clicks - 1).coerceAtLeast(1); countTv.text = "$clicks"; if (active) remaining = clicks } }
+        val plus = tv("+").also { it.setOnClickListener { clicks = (clicks + 1).coerceAtMost(10); countTv.text = "$clicks"; if (active) remaining = clicks } }
         val rot = tv("⇄").also {
             it.setOnClickListener {
                 vertical = !vertical

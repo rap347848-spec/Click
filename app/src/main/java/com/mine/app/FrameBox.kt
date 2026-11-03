@@ -16,7 +16,7 @@ fun lp(w: Int, h: Int, x: Int, y: Int, touch: Boolean) = WindowManager.LayoutPar
     PixelFormat.TRANSLUCENT
 ).apply { gravity = Gravity.TOP or Gravity.START; this.x = x; this.y = y }
 
-/** إطار فارغ (شفاف من الداخل) + مقبضان صغيران خارج الإطار: ✥ للتحريك و ⇲ للتكبير والتصغير */
+/** إطار فارغ + مقبضان صغيران على الزاويتين: ✥ للتحريك و ⇲ للتكبير والتصغير (يصل الإطار لحواف الشاشة) */
 class FrameBox(
     val ctx: Context, val wm: WindowManager, val color: Int,
     x0: Int, y0: Int, w0: Int, h0: Int, val sw: Int, val sh: Int
@@ -27,7 +27,7 @@ class FrameBox(
     @Volatile var w = w0
     @Volatile var h = h0
     var onChange: () -> Unit = {}
-    private val hs = (36 * d).toInt()
+    private val hs = (26 * d).toInt()
     private val minS = (60 * d).toInt()
     private val col = color
 
@@ -57,7 +57,7 @@ class FrameBox(
     init {
         wm.addView(frame, fp); wm.addView(move, mp); wm.addView(resize, rp)
         drag(move, { x to y }) { bx, by, dx, dy -> x = bx + dx; y = by + dy; layout() }
-        drag(resize, { w to h }) { bw, bh, dx, dy -> w = bw + dx; h = bh + dy; layout() }
+        drag(resize, { w to h }) { bw, bh, dx, dy -> w = (bw + dx).coerceAtMost(sw - x); h = (bh + dy).coerceAtMost(sh - y); layout() }
         layout(false)
     }
 
@@ -73,11 +73,11 @@ class FrameBox(
     }
 
     private fun layout(notify: Boolean = true) {
-        w = w.coerceIn(minS, sw - hs * 2); h = h.coerceIn(minS, sh - hs * 2)
-        x = x.coerceIn(hs, sw - w - hs); y = y.coerceIn(hs, sh - h - hs)
+        w = w.coerceIn(minS, sw); h = h.coerceIn(minS, sh)
+        x = x.coerceIn(0, sw - w); y = y.coerceIn(0, sh - h)
         fp.x = x; fp.y = y; fp.width = w; fp.height = h
-        mp.x = x - hs; mp.y = y - hs
-        rp.x = x + w; rp.y = y + h
+        mp.x = (x - hs / 2).coerceIn(0, sw - hs); mp.y = (y - hs / 2).coerceIn(0, sh - hs)
+        rp.x = (x + w - hs / 2).coerceIn(0, sw - hs); rp.y = (y + h - hs / 2).coerceIn(0, sh - hs)
         wm.updateViewLayout(frame, fp); wm.updateViewLayout(move, mp); wm.updateViewLayout(resize, rp)
         if (notify) onChange()
     }
